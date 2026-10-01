@@ -1,0 +1,53 @@
+Test Case ID,Endpoint,HTTP Method,Type,Title,Preconditions,Request / Input,Expected Status,Expected Result,Actual Status,Actual Result,Status,Notes
+TC-PING-P-01,GET /ping,GET,Positive,Health-check endpoint responds and returns "Created",None,No body / no params,200,Body text = "Created",201,Body = "Created",FAIL,Service returns 201 Created instead of 200 OK - documented as BUG-01
+TC-AUTH-P-01,POST /auth,POST,Positive,Valid credentials issue a token,None,"{""username"":""admin"",""password"":""password123""}",200,"JSON {""token"": <string>}",200,"{""token"":""abc123...""}",PASS,Token is non-empty string
+TC-AUTH-P-02,POST /auth,POST,Positive,Token can be reused on secured endpoints,TC-AUTH-P-01 passed,Use token in Cookie/Authorization header for PUT/PATCH/DELETE,200,Sensitive methods accept request,200,Accepted,PASS,Verified via PUT test case
+TC-AUTH-N-01,POST /auth,POST,Negative,Wrong username does not issue a token,None,"{""username"":""hacker"",""password"":""password123""}",200,"{""reason"":""Bad credentials""} - no token",200,"{""reason"":""Bad credentials""}",PASS,No token issued
+TC-AUTH-N-02,POST /auth,POST,Negative,Wrong password does not issue a token,None,"{""username"":""admin"",""password"":""wrong""}",200,"{""reason"":""Bad credentials""}",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-03,POST /auth,POST,Negative,Empty username does not issue a token,None,"{""username"":"""",""password"":""password123""}",200,"{""reason"":""Bad credentials""}",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-04,POST /auth,POST,Negative,Empty password does not issue a token,None,"{""username"":""admin"",""password"":""""}",200,"{""reason"":""Bad credentials""}",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-05,POST /auth,POST,Negative,Missing password field,None,"{""username"":""admin""}",200,"No token, Bad credentials",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-06,POST /auth,POST,Negative,Missing username field,None,"{""password"":""password123""}",200,"No token, Bad credentials",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-07,POST /auth,POST,Negative,Empty JSON body,None,{},200 (design) or 400,"No token issued",200,"{""reason"":""Bad credentials""}",PASS,-
+TC-AUTH-N-08,POST /auth,POST,Negative,SQL injection in username,None,"{""username"":""admin' OR '1'='1"",""password"":""x""}",200,"No token, Bad credentials",200,"{""reason"":""Bad credentials""}",PASS,No SQLi bypass detected
+TC-AUTH-N-09,POST /auth,POST,Negative,Malformed JSON,None,"{ ""username"": ""admin"", ",400,No token issued,400,Error body,PASS,-
+TC-BOOK-P-01,POST /booking,POST,Positive,Create booking with all fields,None,Valid payload with additionalneeds,200,"bookingid + booking object with all fields",200,"bookingid + booking object",PASS,Saves bookingId to env
+TC-BOOK-P-02,POST /booking,POST,Positive,Create booking without additionalneeds,None,Valid payload without additionalneeds,200,"bookingid + booking object",200,bookingid + booking object,PASS,additionalneeds is optional
+TC-BOOK-P-03,POST /booking,POST,Positive,totalprice = 0 accepted,None,Payload with totalprice 0,200,totalprice = 0,200,totalprice = 0,PASS,-
+TC-BOOK-P-04,POST /booking,POST,Positive,Echoed response matches request,None,Valid payload,200,Every sent field is echoed back,200,Fields match,PASS,-
+TC-BOOK-N-01,POST /booking,POST,Negative,Missing firstname should be rejected,None,Payload without firstname,400,Bad Request / validation error,500,Internal Server Error,FAIL,API returns 500 instead of 400 - documented as BUG-07
+TC-BOOK-N-02,POST /booking,POST,Negative,Missing lastname should be rejected,None,Payload without lastname,400,Bad Request / validation error,500,Internal Server Error,FAIL,API returns 500 instead of 400 - documented as BUG-07
+TC-BOOK-N-03,POST /booking,POST,Negative,Missing totalprice should be rejected,None,Payload without totalprice,400,Bad Request / validation error,500,Internal Server Error,FAIL,API returns 500 instead of 400 - documented as BUG-07
+TC-BOOK-N-04,POST /booking,POST,Negative,Missing depositpaid should be rejected,None,Payload without depositpaid,400,Bad Request / validation error,500,Internal Server Error,FAIL,BUG-07
+TC-BOOK-N-05,POST /booking,POST,Negative,Missing bookingdates should be rejected,None,Payload without bookingdates,400,Bad Request / validation error,500,Internal Server Error,FAIL,BUG-07
+TC-BOOK-N-06,POST /booking,POST,Negative,Invalid date format should be rejected,None,checkin="invalid-date" checkout="not-a-date",400,Validation error,200,Booking created with invalid dates,FAIL,Accepting invalid dates - BUG-03
+TC-BOOK-N-07,POST /booking,POST,Negative,Negative totalprice should be rejected,None,totalprice = -100,400,Validation error,200,Booking created with negative price,FAIL,BUG-04
+TC-BOOK-N-08,POST /booking,POST,Negative,checkout before checkin should be rejected,None,checkin=2026-12-31 checkout=2026-01-01,400,Validation error,200,Reversed dates accepted,FAIL,BUG-05
+TC-BOOK-N-09,POST /booking,POST,Negative,Wrong type for totalprice (string),None,totalprice = "one hundred",400 or 500,Rejected,500,Internal Server Error,PASS,-
+TC-BOOK-N-10,POST /booking,POST,Negative,Malformed JSON body,None,"{ ""firstname"": ""Broken"" ",400 or 500,Rejected,400,Error body,PASS,-
+TC-GETALL-P-01,GET /booking,GET,Positive,List all bookings returns array,None,No params,200,Array of {bookingid},200,Array with items,PASS,-
+TC-GETALL-P-02,GET /booking,GET,Positive,Filter by firstname,At least one booking with firstname=Jim exists,?firstname=Jim,200,Array of matching bookingids,200,Array returned,PASS,-
+TC-GETALL-P-03,GET /booking,GET,Positive,Filter by firstname & lastname,At least one booking with Jim Brown exists,?firstname=Jim&lastname=Brown,200,Array of matching bookingids,200,Array returned,PASS,-
+TC-GETALL-P-04,GET /booking,GET,Positive,Filter by checkin/checkout dates,At least one booking in that date range,?checkin=2026-11-01&checkout=2026-11-05,200,Array of matching bookingids,200,Array returned,PASS,-
+TC-GETALL-N-01,GET /booking,GET,Negative,Unknown firstname returns empty array,None,?firstname=ZZZ_DoesNotExist_9999,200,Empty array [],200,[],PASS,-
+TC-GETALL-N-02,GET /booking,GET,Negative,Invalid date format in filter,None,?checkin=not-a-date&checkout=9999,200,Empty array [],200,[],PASS,-
+TC-GETALL-N-03,GET /booking,GET,Negative,Special characters in firstname filter,None,?firstname=<script>alert(1)</script>,200,Empty array or ignored,200,[],PASS,No XSS reflection observed
+TC-GETID-P-01,GET /booking/:id,GET,Positive,Existing bookingId returns booking object,Booking created earlier (TC-BOOK-P-01),Path param bookingId,200,Booking object with all fields,200,Object with all fields,PASS,-
+TC-GETID-P-02,GET /booking/:id,GET,Positive,Response contains bookingdates object,Existing booking,Path param bookingId,200,bookingdates.checkin + bookingdates.checkout,200,Both fields present,PASS,-
+TC-GETID-N-01,GET /booking/:id,GET,Negative,Non-existent ID returns 404,None,id=99999999,404,Not Found,404,Not Found,PASS,-
+TC-GETID-N-02,GET /booking/:id,GET,Negative,Non-numeric ID returns 404,None,id=abc,404,Not Found,404,Not Found,PASS,-
+TC-GETID-N-03,GET /booking/:id,GET,Negative,Negative ID returns 404,None,id=-1,404,Not Found,404,Not Found,PASS,-
+TC-GETID-N-04,GET /booking/:id,GET,Negative,Very large ID returns 404,None,id=99999999999999999999,404,Not Found,404,Not Found,PASS,-
+TC-PUT-P-01,PUT /booking/:id,PUT,Positive,Full update with Cookie auth,Valid token,Valid payload,200,Updated booking object,200,Updated object,PASS,-
+TC-PUT-P-02,PUT /booking/:id,PUT,Positive,Full update with Bearer token,Valid token,Valid payload,200,Updated booking object,200,Updated object,PASS,-
+TC-PUT-N-01,PUT /booking/:id,PUT,Negative,No auth returns 403,None,No Cookie/Authorization,403,Forbidden,403,Forbidden,PASS,-
+TC-PUT-N-02,PUT /booking/:id,PUT,Negative,Wrong token returns 403,None,Cookie token=garbage,403,Forbidden,403,Forbidden,PASS,-
+TC-PUT-N-03,PUT /booking/:id,PUT,Negative,Non-existent ID with valid auth,Valid token,id=99999999,404,Not Found,405,Method Not Allowed,FAIL,Returns 405 instead of 404 - BUG-06
+TC-PATCH-P-01,PATCH /booking/:id,PATCH,Positive,Partial update with Cookie auth,Valid token,"{""firstname"":""PatchedJim""}",200,Only firstname changes,200,Firstname changed,PASS,Other fields preserved
+TC-PATCH-P-02,PATCH /booking/:id,PATCH,Positive,Partial update with Bearer token,Valid token,"{""totalprice"":999}",200,totalprice updated,200,Updated,PASS,-
+TC-PATCH-N-01,PATCH /booking/:id,PATCH,Negative,No auth returns 403,None,No Cookie/Authorization,403,Forbidden,403,Forbidden,PASS,-
+TC-PATCH-N-02,PATCH /booking/:id,PATCH,Negative,Non-existent ID with valid auth,Valid token,id=99999999,404,Not Found,405,Method Not Allowed,FAIL,Returns 405 instead of 404 - BUG-06
+TC-DEL-P-01,DELETE /booking/:id,DELETE,Positive,Delete booking with Cookie auth,Valid token + existing booking,Cookie token,204,No Content,201,Created empty body,FAIL,Returns 201 instead of 204 - BUG-02
+TC-DEL-P-02,DELETE /booking/:id,DELETE,Positive,Deleted booking no longer retrievable,After TC-DEL-P-01,GET the same id,404,Not Found,404,Not Found,PASS,Deletion is effective
+TC-DEL-N-01,DELETE /booking/:id,DELETE,Negative,Delete without auth returns 403,None,No Cookie,403,Forbidden,403,Forbidden,PASS,-
+TC-DEL-N-02,DELETE /booking/:id,DELETE,Negative,Delete with wrong token returns 403,None,Cookie token=fake,403,Forbidden,403,Forbidden,PASS,-

@@ -1,0 +1,1004 @@
+{
+  "info": {
+    "_postman_id": "c4a5e9f1-7d2b-4c8a-b3e6-5f1a9d7c2e8b",
+    "name": "Restful Booker API - QA Test Suite",
+    "description": "Comprehensive Postman test suite for restful-booker.herokuapp.com.\n\nCovers /auth, /booking, /booking/:id, /ping.\nPositive + negative cases. Known bugs marked inside tests.\n\nDefault admin credentials: admin / password123",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://restful-booker.herokuapp.com" }
+  ],
+  "item": [
+    {
+      "name": "00. Health / Ping",
+      "item": [
+        {
+          "name": "TC-PING-P-01 | GET /ping returns OK",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-PING-P-01: health-check endpoint.",
+                  "// Expected: HTTP 200 OK, body 'Created'.",
+                  "// KNOWN BUG (BUG-01): API returns 201 Created instead of 200 OK.",
+                  "pm.test('TC-PING-P-01a | Response time < 2000ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "pm.test('TC-PING-P-01b | Body contains \"Created\"', () => pm.expect(pm.response.text()).to.include('Created'));",
+                  "pm.test('TC-PING-P-01c | Status is 200 OK  [known bug BUG-01 will fail this]', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/ping", "host": ["{{baseUrl}}"], "path": ["ping"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01. Auth (POST /auth)",
+      "item": [
+        {
+          "name": "TC-AUTH-P-01 | Valid credentials return token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-AUTH-P-01: positive. admin/password123 -> 200 + token.",
+                  "pm.test('TC-AUTH-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-AUTH-P-01b | Has token property', () => pm.expect(j).to.have.property('token'));",
+                  "pm.test('TC-AUTH-P-01c | Token is non-empty string', () => { pm.expect(j.token).to.be.a('string'); pm.expect(j.token.length).to.be.above(0); });",
+                  "pm.test('TC-AUTH-P-01d | Token has reasonable length (>=5)', () => pm.expect(j.token.length).to.be.at.least(5));",
+                  "if (j.token) { pm.environment.set('token', j.token); pm.collectionVariables.set('token', j.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-01 | Wrong username -> Bad credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-AUTH-N-01: wrong username.",
+                  "pm.test('TC-AUTH-N-01a | Status 200 (API design)', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-AUTH-N-01b | Response has reason=Bad credentials', () => pm.expect(j.reason).to.eql('Bad credentials'));",
+                  "pm.test('TC-AUTH-N-01c | No token issued', () => pm.expect(j).to.not.have.property('token'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"hacker\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-02 | Wrong password -> Bad credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-AUTH-N-02: wrong password.",
+                  "pm.test('TC-AUTH-N-02a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-AUTH-N-02b | reason=Bad credentials', () => pm.expect(j.reason).to.eql('Bad credentials'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"wrong-password\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-03 | Empty username -> Bad credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-AUTH-N-03a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-AUTH-N-03b | reason=Bad credentials', () => pm.expect(j.reason).to.eql('Bad credentials'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-04 | Missing password field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-AUTH-N-04a | No token in response', () => { const t = pm.response.text(); pm.expect(t).to.not.include('\"token\":\"'); });",
+                  "pm.test('TC-AUTH-N-04b | Status is 200 (design) with Bad credentials', () => { const j = pm.response.json(); pm.expect(j.reason).to.eql('Bad credentials'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-05 | Empty JSON body {}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-AUTH-N-05a | No token issued', () => pm.expect(pm.response.text()).to.not.include('\"token\":\"'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-06 | SQL injection in username",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-AUTH-N-06: SQLi must not authenticate.",
+                  "pm.test('TC-AUTH-N-06a | No token leaked', () => pm.expect(pm.response.text()).to.not.include('\"token\":\"'));",
+                  "pm.test('TC-AUTH-N-06b | reason=Bad credentials', () => { const j = pm.response.json(); pm.expect(j.reason).to.eql('Bad credentials'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin' OR '1'='1\",\n  \"password\": \"x\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        },
+        {
+          "name": "TC-AUTH-N-07 | Malformed JSON body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-AUTH-N-07: malformed JSON should not authenticate.",
+                  "pm.test('TC-AUTH-N-07a | No token leaked', () => pm.expect(pm.response.text()).to.not.include('\"token\":\"'));",
+                  "pm.test('TC-AUTH-N-07b | Status is 4xx or 5xx (not 2xx with token)', () => pm.expect(pm.response.code).to.not.eql(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"username\": \"admin\", " },
+            "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Booking - Create (POST /booking)",
+      "item": [
+        {
+          "name": "TC-BOOK-P-01 | Valid full booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-BOOK-P-01: create valid booking, verify structure, save bookingId.",
+                  "pm.test('TC-BOOK-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-BOOK-P-01b | Has bookingid', () => pm.expect(j).to.have.property('bookingid'));",
+                  "pm.test('TC-BOOK-P-01c | bookingid is integer > 0', () => { pm.expect(j.bookingid).to.be.a('number'); pm.expect(j.bookingid).to.be.above(0); });",
+                  "pm.test('TC-BOOK-P-01d | booking object present', () => pm.expect(j).to.have.property('booking'));",
+                  "pm.test('TC-BOOK-P-01e | firstname echoed', () => pm.expect(j.booking.firstname).to.eql('Jim'));",
+                  "pm.test('TC-BOOK-P-01f | lastname echoed', () => pm.expect(j.booking.lastname).to.eql('Brown'));",
+                  "pm.test('TC-BOOK-P-01g | totalprice echoed', () => pm.expect(j.booking.totalprice).to.eql(111));",
+                  "pm.test('TC-BOOK-P-01h | depositpaid echoed', () => pm.expect(j.booking.depositpaid).to.eql(true));",
+                  "pm.test('TC-BOOK-P-01i | bookingdates present', () => pm.expect(j.booking.bookingdates).to.have.property('checkin'));",
+                  "pm.test('TC-BOOK-P-01j | checkout present', () => pm.expect(j.booking.bookingdates).to.have.property('checkout'));",
+                  "if (j.bookingid) { pm.environment.set('bookingId', j.bookingid); pm.collectionVariables.set('bookingId', j.bookingid); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Jim\",\n  \"lastname\": \"Brown\",\n  \"totalprice\": 111,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-05\" },\n  \"additionalneeds\": \"Breakfast\"\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-P-02 | Booking without additionalneeds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-BOOK-P-02a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-BOOK-P-02b | bookingid present', () => pm.expect(j).to.have.property('bookingid'));",
+                  "pm.test('TC-BOOK-P-02c | booking echoed', () => pm.expect(j.booking.firstname).to.eql('Anna'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Anna\",\n  \"lastname\": \"Smith\",\n  \"totalprice\": 250,\n  \"depositpaid\": false,\n  \"bookingdates\": { \"checkin\": \"2026-12-01\", \"checkout\": \"2026-12-03\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-P-03 | totalprice = 0 accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-BOOK-P-03a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-BOOK-P-03b | totalprice = 0', () => pm.expect(j.booking.totalprice).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Zero\",\n  \"lastname\": \"Price\",\n  \"totalprice\": 0,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-10\", \"checkout\": \"2026-11-11\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-01 | Missing firstname -> should reject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-BOOK-N-01: required field missing. Expected 400, actual often 500 (BUG-07).",
+                  "pm.test('TC-BOOK-N-01a | Status 400 (expected) - will fail if API returns 500/200', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"lastname\": \"NoFirstName\",\n  \"totalprice\": 100,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-05\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-02 | Missing bookingdates -> should reject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-BOOK-N-02a | Status 400 (expected)', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"No\",\n  \"lastname\": \"Dates\",\n  \"totalprice\": 100,\n  \"depositpaid\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-03 | Invalid date format (BUG-03)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-BOOK-N-03: date \"invalid-date\" should be rejected with 400.",
+                  "// KNOWN BUG (BUG-03): API accepts any string as date and returns 200.",
+                  "pm.test('TC-BOOK-N-03a | Status 400 (expected) - fails due to BUG-03', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Bad\",\n  \"lastname\": \"Date\",\n  \"totalprice\": 100,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"invalid-date\", \"checkout\": \"not-a-date\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-04 | Negative totalprice (BUG-04)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-BOOK-N-04: negative price must be rejected.",
+                  "// KNOWN BUG (BUG-04): API accepts -100 and returns 200.",
+                  "pm.test('TC-BOOK-N-04a | Status 400 (expected) - fails due to BUG-04', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Neg\",\n  \"lastname\": \"Price\",\n  \"totalprice\": -100,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-05\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-05 | checkout before checkin (BUG-05)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-BOOK-N-05: checkout must be > checkin.",
+                  "// KNOWN BUG (BUG-05): API accepts reversed dates.",
+                  "pm.test('TC-BOOK-N-05a | Status 400 (expected) - fails due to BUG-05', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Rev\",\n  \"lastname\": \"Dates\",\n  \"totalprice\": 100,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-12-31\", \"checkout\": \"2026-01-01\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-06 | Wrong type for totalprice (string)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-BOOK-N-06a | Status 400 or 500 (not 2xx)', () => pm.expect(pm.response.code).to.be.oneOf([400, 500]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"Str\",\n  \"lastname\": \"Price\",\n  \"totalprice\": \"one hundred\",\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-05\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-BOOK-N-07 | Malformed JSON body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-BOOK-N-07a | Status 400 or 500', () => pm.expect(pm.response.code).to.be.oneOf([400, 500]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"firstname\": \"Broken\" " },
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Booking - Read list (GET /booking)",
+      "item": [
+        {
+          "name": "TC-GETALL-P-01 | Get all bookings returns array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-P-01b | Response is array', () => pm.expect(Array.isArray(j)).to.be.true);",
+                  "pm.test('TC-GETALL-P-01c | Non-empty array', () => pm.expect(j.length).to.be.above(0));",
+                  "pm.test('TC-GETALL-P-01d | Every item has bookingid', () => j.forEach(o => pm.expect(o).to.have.property('bookingid')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+          }
+        },
+        {
+          "name": "TC-GETALL-P-02 | Filter by firstname=Jim",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-P-02a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-P-02b | Response is array', () => pm.expect(Array.isArray(j)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/booking?firstname=Jim",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"],
+              "query": [{ "key": "firstname", "value": "Jim" }]
+            }
+          }
+        },
+        {
+          "name": "TC-GETALL-P-03 | Filter by firstname & lastname",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-P-03a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-P-03b | Array', () => pm.expect(Array.isArray(j)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/booking?firstname=Jim&lastname=Brown",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"],
+              "query": [
+                { "key": "firstname", "value": "Jim" },
+                { "key": "lastname", "value": "Brown" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-GETALL-P-04 | Filter by checkin/checkout dates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-P-04a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-P-04b | Array', () => pm.expect(Array.isArray(j)).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/booking?checkin=2026-11-01&checkout=2026-11-05",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"],
+              "query": [
+                { "key": "checkin", "value": "2026-11-01" },
+                { "key": "checkout", "value": "2026-11-05" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-GETALL-N-01 | Unknown firstname -> empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-N-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-N-01b | Empty array for unknown name', () => pm.expect(j.length).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/booking?firstname=ZZZ_DoesNotExist_9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"],
+              "query": [{ "key": "firstname", "value": "ZZZ_DoesNotExist_9999" }]
+            }
+          }
+        },
+        {
+          "name": "TC-GETALL-N-02 | Invalid date filter -> empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETALL-N-02a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETALL-N-02b | Empty array for invalid date', () => pm.expect(j.length).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/booking?checkin=not-a-date&checkout=9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"],
+              "query": [
+                { "key": "checkin", "value": "not-a-date" },
+                { "key": "checkout", "value": "9999" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Booking - Read one (GET /booking/:id)",
+      "item": [
+        {
+          "name": "TC-GETID-P-01 | Existing bookingId returns booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Requires bookingId to be set (run TC-BOOK-P-01 first).",
+                  "pm.test('TC-GETID-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-GETID-P-01b | firstname present', () => pm.expect(j).to.have.property('firstname'));",
+                  "pm.test('TC-GETID-P-01c | lastname present', () => pm.expect(j).to.have.property('lastname'));",
+                  "pm.test('TC-GETID-P-01d | totalprice present', () => pm.expect(j).to.have.property('totalprice'));",
+                  "pm.test('TC-GETID-P-01e | depositpaid present', () => pm.expect(j).to.have.property('depositpaid'));",
+                  "pm.test('TC-GETID-P-01f | bookingdates.checkin present', () => pm.expect(j.bookingdates).to.have.property('checkin'));",
+                  "pm.test('TC-GETID-P-01g | bookingdates.checkout present', () => pm.expect(j.bookingdates).to.have.property('checkout'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-GETID-N-01 | Non-existent ID -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETID-N-01a | Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('TC-GETID-N-01b | Body contains Not Found', () => pm.expect(pm.response.text()).to.include('Not Found'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/booking/99999999", "host": ["{{baseUrl}}"], "path": ["booking", "99999999"] }
+          }
+        },
+        {
+          "name": "TC-GETID-N-02 | Non-numeric ID -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETID-N-02a | Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/booking/abc", "host": ["{{baseUrl}}"], "path": ["booking", "abc"] }
+          }
+        },
+        {
+          "name": "TC-GETID-N-03 | Negative ID -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-GETID-N-03a | Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/booking/-1", "host": ["{{baseUrl}}"], "path": ["booking", "-1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Booking - Full update (PUT /booking/:id)",
+      "item": [
+        {
+          "name": "TC-PUT-P-01 | Update with Cookie auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Uses {{token}} set by TC-AUTH-P-01.",
+                  "pm.test('TC-PUT-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-PUT-P-01b | firstname updated', () => pm.expect(j.firstname).to.eql('UpdatedJim'));",
+                  "pm.test('TC-PUT-P-01c | lastname updated', () => pm.expect(j.lastname).to.eql('UpdatedBrown'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token={{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"UpdatedJim\",\n  \"lastname\": \"UpdatedBrown\",\n  \"totalprice\": 222,\n  \"depositpaid\": false,\n  \"bookingdates\": { \"checkin\": \"2026-11-02\", \"checkout\": \"2026-11-06\" },\n  \"additionalneeds\": \"Lunch\"\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PUT-P-02 | Update with Bearer token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PUT-P-02a | Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"BearerJim\",\n  \"lastname\": \"BearerBrown\",\n  \"totalprice\": 333,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-03\", \"checkout\": \"2026-11-07\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PUT-N-01 | No auth -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PUT-N-01a | Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"No\",\n  \"lastname\": \"Auth\",\n  \"totalprice\": 1,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-02\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PUT-N-02 | Wrong token -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PUT-N-02a | Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token=garbage-token-12345" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"x\",\n  \"lastname\": \"y\",\n  \"totalprice\": 1,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-02\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PUT-N-03 | Non-existent ID with valid auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PUT-N-03a | Status 404 or 405', () => pm.expect(pm.response.code).to.be.oneOf([404, 405]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token={{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"x\",\n  \"lastname\": \"y\",\n  \"totalprice\": 1,\n  \"depositpaid\": true,\n  \"bookingdates\": { \"checkin\": \"2026-11-01\", \"checkout\": \"2026-11-02\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/99999999", "host": ["{{baseUrl}}"], "path": ["booking", "99999999"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Booking - Partial update (PATCH /booking/:id)",
+      "item": [
+        {
+          "name": "TC-PATCH-P-01 | Partial update with Cookie auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PATCH-P-01a | Status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('TC-PATCH-P-01b | firstname updated', () => pm.expect(j.firstname).to.eql('PatchedJim'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token={{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"PatchedJim\"\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PATCH-P-02 | Partial update with Bearer token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PATCH-P-02a | Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"totalprice\": 999\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PATCH-N-01 | No auth -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PATCH-N-01a | Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"NoAuthPatch\"\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-PATCH-N-02 | Non-existent ID with valid auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-PATCH-N-02a | Status 404 or 405', () => pm.expect(pm.response.code).to.be.oneOf([404, 405]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token={{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"firstname\": \"x\"\n}" },
+            "url": { "raw": "{{baseUrl}}/booking/99999999", "host": ["{{baseUrl}}"], "path": ["booking", "99999999"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Booking - Delete (DELETE /booking/:id)",
+      "item": [
+        {
+          "name": "TC-DEL-P-01 | Delete with Cookie auth (BUG-02)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// TC-DEL-P-01: DELETE should return 204 No Content.",
+                  "// KNOWN BUG (BUG-02): API returns 201 Created.",
+                  "pm.test('TC-DEL-P-01a | Status 204 (expected) - fails due to BUG-02', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "token={{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-DEL-N-01 | Delete without auth -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-DEL-N-01a | Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/booking/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["booking", "{{bookingId}}"] }
+          }
+        },
+        {
+          "name": "TC-DEL-N-02 | Delete with wrong token -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-DEL-N-02a | Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Cookie", "value": "token=fake-token-xyz" }],
+            "url": { "raw": "{{baseUrl}}/booking/1", "host": ["{{baseUrl}}"], "path": ["booking", "1"] }
+          }
+        }
+      ]
+    }
+  ]
+}

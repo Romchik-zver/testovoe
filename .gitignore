@@ -1,0 +1,22 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Postman
+postman/.postman/
+*.postman_collection.json.bak
+
+# Build artefacts
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+newman/
